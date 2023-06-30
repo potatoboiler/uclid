@@ -1544,6 +1544,9 @@ class SymbolicSimulator (module : Module) {
   }
 
   def verifyProcedure(proc : ProcedureDecl, label : String) = {
+    if(proc.annotations.ids.contains(Identifier("CBMC")))
+      println("Would have used CBMC for this procedure, but it is not supported yet.")
+    
     assertionTree.startVerificationScope()
 
     val procScope = context + proc
