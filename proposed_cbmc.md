@@ -23,11 +23,20 @@ Can we translate our precondition and postcondition accurately? How do we map th
  post conditions are valid. If it reports errors, we report these back to the user (translate them back into UCLID?)
 - We then use UCLID to verify the rest of the file as standard (we have noinlined the procedures so there are no issues with interactions between the rest of the module and the C procedures) 
 
+
+#### side note
+
+Currently if you ask UCLID to do BMC on a module that calls a no-inline procedure, it won't automatically run verify on the no-inline procedures, so it never checks any of the procedure code. Is this expected/ok?
+
+
 ### The hard case:
 - The procedure is `[inline]`. We need to figure out how the C code interacts with the UCLID module that surrounds it. This needs the SMTO algorithm
 
 
 ## Syntax
+
+option 1:
+
 ~~~
  procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
     requires (a >= 0 && a < 10);
@@ -36,15 +45,33 @@ Can we translate our precondition and postcondition accurately? How do we map th
     ensures (c >= 0 && c < 18);
   {
     // no body given because body is external?
+  }
+~~~
+option 2
+~~~
+ procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
+    requires (a >= 0 && a < 10);
+    requires (b >= 0 && b < 10);
+    ensures c == a + b;
+    ensures (c >= 0 && c < 18);
+  {
     // or body is given as C code within the UCLID model
-
     $
      C code goes here in between "$"" signs
     $
   }
 ~~~
-
-
+option 3
+~~~
+ procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
+    requires (a >= 0 && a < 10);
+    requires (b >= 0 && b < 10);
+    ensures c == a + b;
+    ensures (c >= 0 && c < 18);
+  {
+    // or body is given as a UCLID model and we translate it to C?? 
+  }
+~~~
 
 
 
