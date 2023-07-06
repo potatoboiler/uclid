@@ -30,7 +30,7 @@ Currently if you ask UCLID to do BMC on a module that calls a no-inline procedur
 
 
 ### The hard case:
-- The procedure is `[inline]`. We need to figure out how the C code interacts with the UCLID module that surrounds it. This needs the SMTO algorithm
+- The procedure is `[inline]`. We need to figure out how the C code interacts with the UCLID module that surrounds it. This needs the SMTO algorithm?
 
 
 ## Syntax
@@ -73,5 +73,8 @@ option 3
   }
 ~~~
 
-
+## What do we need in UCLID?
+- a file-based interface (instead of interactive process. CBMC doesn't have an interactive mode)
+- translation of UCLID to C (at least for the pre/post conditions, unless we trust the user to do that)
+- some way of parsing back the response (is this specific for CBMC or more general?)
 
