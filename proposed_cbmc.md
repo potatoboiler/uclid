@@ -38,7 +38,7 @@ Currently if you ask UCLID to do BMC on a module that calls a no-inline procedur
 option 1:
 
 ~~~
- procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
+ procedure [noinline,svcomp-verifier] add(a : integer, b : integer) returns (c : integer)
     requires (a >= 0 && a < 10);
     requires (b >= 0 && b < 10);
     ensures c == a + b;
@@ -57,7 +57,7 @@ option 2
   {
     // or body is given as C code within the UCLID model
     $
-     C code goes here in between "$"" signs
+     C code goes here in between "$"" signs (or use lingua franca syntax)
     $
   }
 ~~~
