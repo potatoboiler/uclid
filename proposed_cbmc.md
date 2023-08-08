@@ -1,20 +1,24 @@
-# Proposed integration of CBMC as an oracle for verifying procedures
+
+# Proposed integration of software verification tools as an oracle for verifying procedures
+
+NB: this document was written using the old SV-COMP syntax. The syntax appears to have changed, so would be good to check this (https://sv-comp.sosy-lab.org/)
 
 ## Verifying procedures where the body is provided as C code
 
 ### The easy case:
-- The procedure is `[noinline]`. This means that we can use CBMC to check that the pre condition guarantees the post condition holds (i.e., to do the procedural verification)
+- The procedure is `[noinline]`. This means that we can use a software verification tool for C (e.g., CBMC) to check that the pre condition guarantees the post condition holds (i.e., to do the procedural verification)
 - Then we use UCLID to verify the rest of the model, using the standard `[noinline]` semantics (i.e., at every call to the procedure, we havoc the modifies set and assume the post condition)
 - User provides the body of the procedure `procedure-name` in a C file which is named `procedure-name.c`. 
 
 #### Process:
 - we construct a C file which does the following:
 ```
+void __VERIFIER_assert(int cond) { if(!(cond)) { ERROR: {reach_error();abort();} } }
 int main(int)
 {
-__CPROVER_assume(precondition)
+__VERIFIER_assume(precondition)
 [body of function]
-__CPROVER_assert(postcondition)
+__VERIFIER_assert(postcondition)
 }
 ```
 
@@ -49,7 +53,7 @@ option 1:
 ~~~
 option 2
 ~~~
- procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
+ procedure [noinline,svcomp-verifier] add(a : integer, b : integer) returns (c : integer)
     requires (a >= 0 && a < 10);
     requires (b >= 0 && b < 10);
     ensures c == a + b;
@@ -63,7 +67,7 @@ option 2
 ~~~
 option 3
 ~~~
- procedure [noinline,cbmc] add(a : integer, b : integer) returns (c : integer)
+ procedure [noinline,svcomp-verifier] add(a : integer, b : integer) returns (c : integer)
     requires (a >= 0 && a < 10);
     requires (b >= 0 && b < 10);
     ensures c == a + b;
@@ -74,7 +78,7 @@ option 3
 ~~~
 
 ## What do we need in UCLID?
-- a file-based interface (instead of interactive process. CBMC doesn't have an interactive mode)
+- a file-based interface (instead of interactive process. CBMC/sv comp tools may  not have an interactive mode)
 - translation of UCLID to C (at least for the pre/post conditions, unless we trust the user to do that)
-- some way of parsing back the response (is this specific for CBMC or more general?)
+- some way of parsing back the response
 
