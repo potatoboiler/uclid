@@ -1556,6 +1556,15 @@ class SymbolicSimulator (module : Module) {
   }
 
   def verifyProcedure(proc : ProcedureDecl, label : String) = {
+    if(proc.annotations.ids.contains(Identifier("CBMC")))
+    {
+      if(proc.shouldInline)
+      {
+        throw new Utils.RuntimeError("CBMC annotation is not supported for inlined procedures.")
+      }
+      else
+      println("Would have used CBMC for this procedure, but it is not supported yet.")
+    }    
     assertionTree.startVerificationScope()
 
     val procScope = context + proc
