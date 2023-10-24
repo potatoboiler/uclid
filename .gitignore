@@ -30,3 +30,6 @@ tasks
 lib/libz3java.so
 /z3-*
 *.json
+
+# VS Code development junk files
+project/metals.sbt
