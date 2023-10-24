@@ -1565,6 +1565,11 @@ class SymbolicSimulator (module : Module) {
       else
       println("Would have used CBMC for this procedure, but it is not supported yet.")
     }    
+    if (proc.annotations.ids.contains(Identifier("svcomp-verifier"))) {
+      // TODO: create special logic for inlined statements. 
+      // At the moment, we opt to enforce the existence of pre-/post-conditions to reduce inline to no-inline case.
+      assert(proc.requires.length > 0 && proc.ensures.length > 0)
+    }
     assertionTree.startVerificationScope()
 
     val procScope = context + proc
