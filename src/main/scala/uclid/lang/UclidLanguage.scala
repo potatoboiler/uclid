@@ -1336,6 +1336,17 @@ case class AssignStmt(lhss: List[Lhs], rhss: List[Expr]) extends Statement {
   override val hasCall = false
   override val hasInternalCall = false
 }
+
+// Preferring the String, not StringLit type, because we do not need StringLit's semantics
+case class CBlock(body: String) extends Statement {
+  override def toLines: List[String] = body.split("\\n").toList
+
+  override def hasStmtBlock = true
+  override val hasCall = true
+  override val hasInternalCall = true
+
+}
+
 case class BlockStmt(vars: List[BlockVarsDecl], stmts: List[Statement]) extends Statement {
   override def hasStmtBlock = true
   override val hasLoop = stmts.exists(st => st.hasLoop)

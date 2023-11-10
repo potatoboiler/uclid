@@ -613,6 +613,12 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       }
     }
 
+    lazy val CBlk: PackratParser[lang.CBlock] = positioned{
+      "{" ~> "$" ~> String <~ "$" <~ "}" ^^ {
+        case body => lang.CBlock(body.toString())
+      }
+    }
+
     lazy val OptionalExpr : PackratParser[Option[lang.Expr]] =
       "(" ~ ")" ^^ { case _ => None } |
       "(" ~> Expr <~ ")" ^^ { case expr => Some(expr) }
@@ -696,7 +702,20 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
           val ensuresList = collectEnsures(verifExprList)
           val modifiesList = collectModifies(verifExprList)
           lang.ProcedureDecl(id, lang.ProcedureSig(args, List.empty),
-                             body, requiresList, ensuresList, modifiesList.toSet, annotations) }
+                             body, requiresList, ensuresList, modifiesList.toSet, annotations) } |
+      // procedure with embedded C block
+      KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~ rep(ProcedureVerifExpr) ~ CBlk ^^ 
+        { case annotOpt ~ id ~ args ~ outs ~ verifExprs ~ body => 
+          val annotations = annotOpt match {
+            case Some(ids) => ProcedureAnnotations(ids.toSet)
+            case None => ProcedureAnnotations(Set.empty)
+          }
+          val verifExprList = verifExprs.flatMap(v => v)
+          val requiresList = collectRequires(verifExprList)
+          val ensuresList = collectEnsures(verifExprList)
+          val modifiesList = collectModifies(verifExprList)
+          lang.ProcedureDecl(id, lang.ProcedureSig(args, outs), body, requiresList, ensuresList, modifiesList.toSet, annotations)
+        }
     }
 
     lazy val TypeDecl : PackratParser[lang.TypeDecl] = positioned {
@@ -943,10 +962,10 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       positioned (InstanceDecl | Error_InstanceDecl | TypeDecl | Error_TypeDecl | ConstDecl | FuncDecl | Error_FuncDecl | OracleFuncDecl | Error_OracleFuncDecl |
                   ModuleTypesImportDecl | ModuleFuncsImportDecl | Error_ModuleFuncsImportDecl | ModuleSynthFuncsImportDecl | ModuleConstsImportDecl |
                   SynthFuncDecl | Error_SynthFuncDecl | DefineDecl | Error_DefineDecl | ModuleDefsImportDecl | Error_ModuleDefsImportDecl | GrammarDecl | Error_GrammarDecl |
-                  VarsDecl | Error_VarsDecl | InputsDecl | Error_InputsDecl | OutputsDecl | Error_OutputsDecl | SharedVarsDecl | Error_SharedVarsDecl|
+                  VarsDecl | Error_VarsDecl | InputsDecl | Error_InputsDecl | OutputsDecl | Error_OutputsDecl | SharedVarsDecl | Error_SharedVarsDecl |
                   ConstLitDecl | Error_ConstLitDecl | ConstDecl | ProcedureDecl | Error_ProcedureDecl |
                   InitDecl | Error_InitDecl | NextDecl | Error_NextDecl | SpecDecl | Error_SpecDecl | AxiomDecl | Error_AxiomDecl |
-                  ModuleImportDecl | Error_ModuleImportDecl | MacroDecl | Error_MacroDecl| GroupDecl | Error_GroupDecl)
+                  ModuleImportDecl | Error_ModuleImportDecl | MacroDecl | Error_MacroDecl | GroupDecl | Error_GroupDecl)
 
     // control commands.
     lazy val CmdParam : PackratParser[lang.CommandParams] = 

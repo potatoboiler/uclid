@@ -104,7 +104,8 @@ class PrimedAssignmentCheckerPass extends ReadOnlyPass[Set[ModuleError]]
              ForStmt(_, _, _, _)  | WhileStmt(_, _, _)  |
              CaseStmt(_)          | SkipStmt()          |
              AssertStmt(_, _)     | AssumeStmt(_, _)    |
-             HavocStmt(_)         | BlockStmt(_, _)     => 
+             HavocStmt(_)         | BlockStmt(_, _)     |
+             CBlock(_) => 
           in
         case ModuleCallStmt(_) =>
           checkParallelConstruct("next")
