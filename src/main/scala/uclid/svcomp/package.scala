@@ -3,26 +3,9 @@ package uclid.svcomp
 import java.nio.file.{Files, Path}
 import scala.collection.mutable.MutableList
 import scala.collection.immutable
-import uclid.lang.UclidParser
-import uclid.lang.CBlock
-import uclid.lang.ProcedureDecl
-import uclid.lang.{
-  Type,
-  BooleanType,
-  IntegerType,
-  RealType,
-  FloatType,
-  ArrayType,
-  EnumType,
-  BitVectorType,
-  StringType,
-  UninterpretedType, // void* ?
-  TupleType, // struct?
-  GroupType // struct or array?
-}
-import _root_.java.io.File
+import java.io.File
 import java.nio.file.StandardOpenOption
-import _root_.uclid.lang.Identifier
+import uclid.lang._
 
 sealed abstract class SupportedLanguages()
 object SupportedLanguages {
@@ -75,6 +58,92 @@ object SupportedVerifiers {
       c_functions += c_procedure
     }
 
+    def convert_uclid_expr(e: Expr): String = {
+      val converted_expr: String = e match {
+        // TODO: EnumType, BitVectorType, ArrayType, GroupType
+        // TODO: case match on sizes of sig and exp for floats to differentiate double from float
+
+        case FreshLit(typ) => ???
+
+        case BoolLit(value)                           => value.toString()
+        case IntLit(value)                            => value.toString()
+        case RealLit(integral, fractional)            => e.toString()
+        case FloatLit(integral, fractional, exp, sig) => e.toString()
+        case BitVectorLit(value, width)               => ???
+        case StringLit(value)                         => e.toString()
+        case ConstArray(exp, typ)                     => ???
+        case UninterpretedTypeLiteral(value)          => ???
+        case ConstRecord(fieldvalues)                 => ???
+        case Tuple(values)                            => ???
+
+        case OperatorApplication(op, operands) =>
+          // TODO: BitVector operators, ArrayUpdate, RecordUpdate, GetNextValueOp, DistinctOp, anything Temporal
+          op match {
+            // extends BooleanOperator
+            case ImplicationOp() => {
+              assert(operands.length == 2)
+              val op0 = convert_uclid_expr(operands(0))
+              val op1 = convert_uclid_expr(operands(1))
+              s"!$op0 || $op1"
+            }
+            case IffOp() => {
+              assert(operands.length == 2)
+              val op0 = convert_uclid_expr(operands(0))
+              val op1 = convert_uclid_expr(operands(1))
+              s"(!$op0 || $op1) && ($op0 || !$op1)"
+            }
+
+            case
+                // extends PolymorphicOperator
+                LTOp() | LEOp() | GTOp() | GEOp() | AddOp() | SubOp() |
+                MulOp() | DivOp()
+                // extends IntArgOperator
+                | IntLTOp() | IntLEOp() | IntGTOp() | IntGEOp() | IntAddOp() |
+                IntSubOp() | IntMulOp() | IntDivOp()
+                // extends RealArgOperator
+                | RealLTOp() | RealLEOp() | RealGTOp() | RealGEOp() |
+                RealAddOp() | RealSubOp() | RealMulOp() | RealDivOp()
+                // extends FPArgOperator
+                | FPLTOp(_, _) | FPLEOp(_, _) | FPGTOp(_, _) | FPGEOp(_, _) |
+                FPAddOp(_, _) | FPSubOp(_, _) | FPMulOp(_, _) | FPDivOp(_, _)
+                // extends BooleanOperator
+                | DisjunctionOp() | ConjunctionOp()
+                // extends ComparisonOperator
+                | EqualityOp() | InequalityOp() => {
+              assert(operands.length == 2)
+              val op0 = convert_uclid_expr(operands(0))
+              val op1 = convert_uclid_expr(operands(1))
+              s"$op0 ${op.toString()} $op1"
+            }
+
+            case UnaryMinusOp() | IntUnaryMinusOp() | RealUnaryMinusOp() |
+                FPUnaryMinusOp(_, _) | NegationOp() =>
+              op.toString() + convert_uclid_expr(operands(0))
+
+            case FPIsNanOp(_, _) => {
+              // https://stackoverflow.com/questions/33924866/is-x-x-a-portable-way-to-test-for-nan
+              assert(operands.length == 1)
+              val operand = convert_uclid_expr(operands(0))
+              s"$operand != $operand"
+            }
+
+            case _ => ???
+          }
+
+        case Identifier(name)                           => name
+        case ExternalIdentifier(moduleId, id)           => ???
+        case IndexedIdentifier(name, indices)           => ???
+        case QualifiedIdentifier(f, typs)               => ???
+        case QualifiedIdentifierApplication(qid, exprs) => ???
+
+        case FuncApplication(e, args) => ???
+        case Lambda(ids, e)           => ???
+        case LetExpr(ids, e)          => ???
+      }
+
+      s"( $converted_expr )"
+    }
+
     // TODO: find an appropriate place to call this function
     def generate_cbmc_file(): Path = {
       val temp_file_path: Path =
@@ -107,12 +176,18 @@ object SupportedVerifiers {
           .map((t: (Identifier, String)) => s"${t._2} ${t._1};")
           .mkString(" ")
 
-        val preconditions = c_function.requires.map(e => ???) // TODO
-        val postconditions = c_function.ensures.map(e => ???) // TODO
+        val preconditions = c_function.requires.map(convert_uclid_expr)
+        val postconditions = c_function.ensures.map(convert_uclid_expr)
 
-        val cprover_assume_conditions = ??? // TODO
-        val cprover_requires_conditions = ??? // TODO
-        val cprover_ensures_conditions = ??? // TODO
+        val cprover_assume_conditions = preconditions
+          .map((precondition) => s"__CPROVER_assume($precondition);")
+          .mkString("\n")
+        val cprover_requires_conditions = preconditions
+          .map((precondition) => s"__CPROVER_precondition($precondition);")
+          .mkString("\n")
+        val cprover_ensures_conditions = postconditions
+          .map((postcondition) => s"__CPROVER_postcondition($postcondition);")
+          .mkString("\n")
 
         val function_name = c_function.id
         val function_args = parameter_vals.map((t: (Identifier, String)) =>
