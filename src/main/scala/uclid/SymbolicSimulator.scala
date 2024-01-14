@@ -348,7 +348,7 @@ class SymbolicSimulator (module : Module) {
               case Some(l) => l.toString + ": verify_%s".format(procName.toString())
               case None    => "verify_%s".format(procName.toString)
             }
-            verifyProcedure(proc, label)
+            verifyProcedure(proc, label, module)
             val delta =  (System.nanoTime() - start) / 1000000.0
             UclidMain.printStats(f"symbolic simulation for verify took $delta%.1f ms")
             check(solver, config, cmd);
@@ -1557,21 +1557,22 @@ class SymbolicSimulator (module : Module) {
     }
   }
 
-  def verifyProcedure(proc : ProcedureDecl, label : String) = {
-    if(proc.annotations.ids.contains(Identifier("CBMC")))
-    {
+  def verifyProcedure(proc : ProcedureDecl, label : String, module: Module) = {
+    if (proc.annotations.ids.contains(Identifier("lang", Some("C")))) {
       if(proc.shouldInline)
       {
         throw new Utils.RuntimeError("CBMC annotation is not supported for inlined procedures.")
       }
-      else {
-        println("Would have used CBMC for this procedure, but it is not supported yet.")
+
+      if(proc.annotations.ids.contains(Identifier("verifier", Some("CBMC")))) {
+
+        import uclid.svcomp.SupportedVerifiers
+
+        ??? // CBMC.add_cfunc(proc)
+      } else {
+        ???
       }
-
-      import uclid.svcomp.SupportedVerifiers
-
-      SupportedVerifiers.CBMC.add_cfunc(proc)
-    }    
+    }
     assertionTree.startVerificationScope()
 
     val procScope = context + proc

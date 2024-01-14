@@ -133,6 +133,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     lazy val OpNot = "!"
     lazy val OpMinus = "-"
     lazy val OpPrime = "'"
+    lazy val KwPreamble = "preamble"
     lazy val KwProcedure = "procedure"
     lazy val KwBoolean = "boolean"
     lazy val KwInteger = "integer"
@@ -280,6 +281,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       positioned { ("[" ~> Expr ~ ":" ~ Expr <~ "]") ^^ { case x ~ ":" ~ y => lang.VarExtractOp(lang.VarBitVectorSlice(x, y)) } }
     lazy val ExtractOp : Parser[lang.ExtractOp] = positioned { ConstExtractOp | VarExtractOp }
     lazy val Id: PackratParser[Identifier] = positioned { ident ^^ {case i => Identifier(i)} }
+    lazy val StringValuedId: PackratParser[Identifier] = positioned { (ident ~ "=" ~ stringLit) ^^ { case ident ~ "=" ~ value => Identifier(ident, Some(value)) } } // TODO: refactor Id using .? operator?
     /* BEGIN Literals. */
     lazy val Bool: PackratParser[BoolLit] =
       positioned { "false" ^^ { _ => BoolLit(false) } | "true" ^^ { _ => BoolLit(true) } }
@@ -554,6 +556,9 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     lazy val IdList : PackratParser[List[lang.Identifier]] =
       Id ~ rep("," ~> Id) ^^ { case id ~ ids => id :: ids }
 
+    lazy val AnnotationList : PackratParser[List[lang.Identifier]] = 
+      (StringValuedId | Id) ~ rep("," ~> StringValuedId | Id) ^^ { case id ~ ids => id :: ids }  
+    
     lazy val BlockVarsDecl : PackratParser[lang.BlockVarsDecl] = positioned {
       KwVar ~> IdList ~ (":" ~> Type) <~ ";" ^^ {
         case ids ~ typ => lang.BlockVarsDecl(ids, typ)
@@ -654,8 +659,8 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       }
     }
 
-    lazy val ProcedureAnnotationList : PackratParser[List[Identifier]] = {
-      "[" ~> IdList <~ "]"
+    lazy val ProcedureAnnotationList : PackratParser[List[lang.Identifier]] = {
+      "[" ~> AnnotationList <~ "]"
     }
     
     lazy val SingleAnnotation: PackratParser[Identifier] = {
@@ -676,6 +681,17 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       vs.collect { case e : lang.ProcedureModifiesExpr  => e.modifiable }
     }
     
+    lazy val PreambleDecl : PackratParser[lang.PreambleDecl] = positioned { 
+      KwPreamble ~> ProcedureAnnotationList.? ~ Id ~ BlkStmt ^^ { case annotOpt ~ id ~ body => 
+        val annotations = annotOpt match {
+            case Some(ids) => ProcedureAnnotations(ids.toSet)
+            case None => ProcedureAnnotations(Set.empty) // TODO: throw an exception, a preamble must correspond to a particular language
+        } 
+        
+        lang.PreambleDecl(id, body, annotations)
+      }
+    }
+
     lazy val ProcedureDecl : PackratParser[lang.ProcedureDecl] = positioned {
       KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~
       rep(ProcedureVerifExpr) ~ (BlkStmt|Error_BlkStmt) ^^
@@ -704,7 +720,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
           lang.ProcedureDecl(id, lang.ProcedureSig(args, List.empty),
                              body, requiresList, ensuresList, modifiesList.toSet, annotations) } |
       // procedure with embedded C block
-      KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~ rep(ProcedureVerifExpr) ~ CBlk ^^ 
+      KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~ rep(ProcedureVerifExpr) ~ BlkStmt ^^ 
         { case annotOpt ~ id ~ args ~ outs ~ verifExprs ~ body => 
           val annotations = annotOpt match {
             case Some(ids) => ProcedureAnnotations(ids.toSet)
@@ -963,7 +979,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
                   ModuleTypesImportDecl | ModuleFuncsImportDecl | Error_ModuleFuncsImportDecl | ModuleSynthFuncsImportDecl | ModuleConstsImportDecl |
                   SynthFuncDecl | Error_SynthFuncDecl | DefineDecl | Error_DefineDecl | ModuleDefsImportDecl | Error_ModuleDefsImportDecl | GrammarDecl | Error_GrammarDecl |
                   VarsDecl | Error_VarsDecl | InputsDecl | Error_InputsDecl | OutputsDecl | Error_OutputsDecl | SharedVarsDecl | Error_SharedVarsDecl |
-                  ConstLitDecl | Error_ConstLitDecl | ConstDecl | ProcedureDecl | Error_ProcedureDecl |
+                  ConstLitDecl | Error_ConstLitDecl | ConstDecl | PreambleDecl | ProcedureDecl | Error_ProcedureDecl |
                   InitDecl | Error_InitDecl | NextDecl | Error_NextDecl | SpecDecl | Error_SpecDecl | AxiomDecl | Error_AxiomDecl |
                   ModuleImportDecl | Error_ModuleImportDecl | MacroDecl | Error_MacroDecl | GroupDecl | Error_GroupDecl)
 

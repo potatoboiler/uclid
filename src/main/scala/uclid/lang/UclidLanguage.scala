@@ -47,6 +47,7 @@ import scala.util.parsing.input.Position
 import scala.reflect.ClassTag
 import uclid.smt.SynonymMap
 import uclid.smt.Converter
+import uclid.svcomp.SupportedLanguages
 
 object PrettyPrinter
 {
@@ -737,8 +738,8 @@ sealed abstract class Expr extends ASTNode {
  */
 sealed abstract class QIdentifier extends Expr
 sealed abstract class UIdentifier extends QIdentifier
-case class Identifier(name : String) extends UIdentifier {
-  override def toString = name.toString
+case class Identifier(name : String, value: Option[String] = None) extends UIdentifier {
+  override def toString = { name.toString + { value match { case Some(inner) => s"=${inner}" case None => "" } } }
 
   /**
     * Checks whether the identifier matches either an
@@ -786,7 +787,7 @@ case class QualifiedIdentifierApplication (qid : QIdentifier, exprs : List[Expr]
         }
         case _ => None
       } else None 
-    case Identifier(name) => ULContext.stripMkTupleFunction(name) match {
+    case Identifier(name, None) => ULContext.stripMkTupleFunction(name) match {
       case Some(s) => {
         val rawtype = ULContext.postTypeMap.get(s).get.asInstanceOf[ProductType]
         val exprsOrNone = exprs.map(_.codegenUclidLang)
@@ -1020,7 +1021,7 @@ object ExprDecorator {
   /** Factory constructor. */
   def parse(e : Expr) : ExprDecorator = {
     val dec = e match {
-      case Identifier(id) =>
+      case Identifier(id, None) =>
         if (id == "LTL") {
           LTLExprDecorator
         } else {
@@ -1561,6 +1562,13 @@ case class ProcedureAnnotations(ids : Set[Identifier]) extends ASTNode {
   }
 }
 
+case class PreambleDecl(id: Identifier, body: Statement, annotations : ProcedureAnnotations) extends Decl
+{
+  override def toString = "preamble " + annotations.toString + id + "\n" + Utils.join(body.toLines.map(PrettyPrinter.indent(2) + _), "\n")
+
+  lazy val language : SupportedLanguages = SupportedLanguages.mapStringToLang(annotations.ids.filter{ _.name == "lang" }.head.value.get)
+}
+
 case class ProcedureDecl(
     id: Identifier, sig: ProcedureSig, body: Statement,
     requires: List[Expr], ensures: List[Expr], modifies: Set[ModifiableEntity],
@@ -1590,6 +1598,8 @@ case class ProcedureDecl(
     else
       true;
   }
+
+  lazy val language : Option[SupportedLanguages] = annotations.ids.filter{ _.name == "lang" }.headOption.map{ l => SupportedLanguages.mapStringToLang(l.value.get) }
 }
 case class TypeDecl(id: Identifier, typ: Type) extends Decl {
   override def toString = "type " + id + " = " + typ + "; // " + position.toString
@@ -1957,10 +1967,22 @@ case class Module(id: Identifier, decls: List[Decl], var cmds : List[GenericProo
   lazy val externalMap : Map[Identifier, ModuleExternal] =
     (functions.map(f => (f.id -> f))  ++ synthFunctions.map(sf => (sf.id -> sf)) ++ (constantDecls.flatMap(c => c.ids.map(id => (id, c))).map(p => p._1 -> p._2))).toMap
 
+  // module preamble for externally verifiable procedures.
+  lazy val preambles : Map[SupportedLanguages, PreambleDecl] = decls
+    .filter(_.isInstanceOf[PreambleDecl])
+    .map{ d => 
+      val p = d.asInstanceOf[PreambleDecl] 
+      (p.language -> p) }
+    .toMap
   // module procedures.
   lazy val procedures : List[ProcedureDecl] = decls.filter(_.isInstanceOf[ProcedureDecl]).map(_.asInstanceOf[ProcedureDecl])
   // inlineable procedures.
   lazy val inlineableProcedures : Set[Identifier] = decls.collect{ case p : ProcedureDecl => p.id }.toSet
+  // svcomp verifiable procedures.
+  lazy val externallyVerifiableProcedures : Map[SupportedLanguages, Set[ProcedureDecl]] = {
+    val x = procedures.foreach{ _.annotations.ids.filter{ id : Identifier => id.name == "lang" } }
+    ???
+  }
   // helper method for inlineableProcedures.
   def isInlineableProcedure(id : Identifier) : Boolean = inlineableProcedures.contains(id)
   // module instances of other modules.
