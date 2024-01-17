@@ -1558,20 +1558,18 @@ class SymbolicSimulator (module : Module) {
   }
 
   def verifyProcedure(proc : ProcedureDecl, label : String, module: Module) = {
-    if (proc.annotations.ids.contains(Identifier("lang", Some("C")))) {
+    if (proc.language.isDefined) {
       if(proc.shouldInline)
       {
-        throw new Utils.RuntimeError("CBMC annotation is not supported for inlined procedures.")
+        throw new Utils.RuntimeError("External verification (e.g. using CBMC to verify C-procedures) is not supported for inlined procedures.")
       }
 
-      if(proc.annotations.ids.contains(Identifier("verifier", Some("CBMC")))) {
-
-        import uclid.svcomp.SupportedVerifiers
-
-        ??? // CBMC.add_cfunc(proc)
-      } else {
-        ???
+      proc.verifier match {
+        case Some(v : SupportedVerifiers) => v.invoke()
+        case None => ???
       }
+
+      ???
     }
     assertionTree.startVerificationScope()
 

@@ -3,6 +3,7 @@ package uclid.svcomp
 import java.nio.file.{Files, Path}
 import scala.collection.mutable.MutableList
 import scala.collection.immutable
+import scala.sys.process._
 import java.io.File
 import java.nio.file.StandardOpenOption
 import uclid.lang
@@ -24,7 +25,6 @@ object SupportedLanguages {
       case _     => ???
     }
   }
-
 }
 
 abstract class SupportedVerifiers() {
@@ -34,4 +34,32 @@ abstract class SupportedVerifiers() {
   def convert_uclid_types(input_type: Type): String
   def check_module(module: lang.Module): Unit
   def invoke(cbmc_filepath: Path): Unit
+
+  /*
+   * The run function accepts a command to run as a Sequence of strings, runs it, and returns the command return status,
+   * stdout output, and stderr output.
+   * Precondition: The Sequence of strings must be non-empty.
+   */
+  def run(command: Seq[String]): (Int, String, String) = {
+    val output = new StringBuilder
+    val error = new StringBuilder
+
+    val status = command ! ProcessLogger(
+      line => output append (line + "\n"),
+      line => error append (line + "\n")
+    )
+
+    if (output.nonEmpty) { output.setLength(output.length - 1) }
+    if (error.nonEmpty) { error.setLength(error.length - 1) }
+
+    (status, output.toString, error.toString)
+  }
+}
+object SupportedVerifiers {
+  def mapStringToVerifier(s: String) {
+    s match {
+      case "CBMC" => CBMC
+      case _      => ???
+    }
+  }
 }

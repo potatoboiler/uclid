@@ -47,7 +47,7 @@ import scala.util.parsing.input.Position
 import scala.reflect.ClassTag
 import uclid.smt.SynonymMap
 import uclid.smt.Converter
-import uclid.svcomp.SupportedLanguages
+import uclid.svcomp.{SupportedLanguages, SupportedVerifiers}
 
 object PrettyPrinter
 {
@@ -1562,7 +1562,7 @@ case class ProcedureAnnotations(ids : Set[Identifier]) extends ASTNode {
   }
 }
 
-case class PreambleDecl(id: Identifier, body: Statement, annotations : ProcedureAnnotations) extends Decl
+case class PreambleDecl(body: Statement, annotations : ProcedureAnnotations) extends Decl
 {
   override def toString = "preamble " + annotations.toString + id + "\n" + Utils.join(body.toLines.map(PrettyPrinter.indent(2) + _), "\n")
 
@@ -1599,7 +1599,17 @@ case class ProcedureDecl(
       true;
   }
 
-  lazy val language : Option[SupportedLanguages] = annotations.ids.filter{ _.name == "lang" }.headOption.map{ l => SupportedLanguages.mapStringToLang(l.value.get) }
+  lazy val language : Option[SupportedLanguages] = annotations.ids
+    .filter{ _.name == "lang" }
+    .headOption
+    .flatMap{ l => SupportedLanguages.mapStringToLang(l.value.get) }
+
+  lazy val verifier : Option[SupportedVerifiers] = annotations.ids
+    .filter{ _.name == "verifier" }
+    .headOption
+    .map {
+      _.value.flatMap(s => SupportVerifiers.mapStringToVerifier(s))
+    }
 }
 case class TypeDecl(id: Identifier, typ: Type) extends Decl {
   override def toString = "type " + id + " = " + typ + "; // " + position.toString

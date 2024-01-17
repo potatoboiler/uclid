@@ -682,13 +682,13 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     }
     
     lazy val PreambleDecl : PackratParser[lang.PreambleDecl] = positioned { 
-      KwPreamble ~> ProcedureAnnotationList.? ~ Id ~ BlkStmt ^^ { case annotOpt ~ id ~ body => 
+      KwPreamble ~> ProcedureAnnotationList.? ~ BlkStmt ^^ { case annotOpt ~ body => 
         val annotations = annotOpt match {
             case Some(ids) => ProcedureAnnotations(ids.toSet)
             case None => ProcedureAnnotations(Set.empty) // TODO: throw an exception, a preamble must correspond to a particular language
         } 
         
-        lang.PreambleDecl(id, body, annotations)
+        lang.PreambleDecl(, body, annotations)
       }
     }
 

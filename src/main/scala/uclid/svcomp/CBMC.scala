@@ -8,7 +8,6 @@ import java.nio.file.StandardOpenOption
 import uclid.lang
 import uclid.lang._
 
-
 case object CBMC extends SupportedVerifiers() {
   // var c_functions: Map[lang.Module, Set[ProcedureDecl]] = Map()
   var c_functions: MutableList[ProcedureDecl] = MutableList()
@@ -188,7 +187,7 @@ case object CBMC extends SupportedVerifiers() {
           $function_body 
           $cprover_ensures_conditions 
         }"""
-      
+
       // TODO: deprecate this, so that verifyProcedure does indeed operate procedure by procedure?
 
       main_entries += s"{ $input_decls \n $cprover_assume_conditions \n $function_invocation }"
@@ -203,16 +202,17 @@ case object CBMC extends SupportedVerifiers() {
     )
 
     temp_file_path
+    ??? // todo: rewrite for new semantics
   }
 
   override def check(module: lang.Module) = {
-
+    ???
   }
 
   override def invoke(cbmc_filepath: Path, entrypoint: String) = {
+    val cmd = List("cbmc", cbmc_filepath.toString, "--json-ui", "--verbosity", "10")
+    val status, out, err = SupportedVerifiers.run(cmd)
+
     ???
-    // call Ramneet's function (TODO)
-    // receive output
-    // parse into ???
   }
 }
