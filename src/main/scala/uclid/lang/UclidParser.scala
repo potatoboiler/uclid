@@ -281,7 +281,10 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       positioned { ("[" ~> Expr ~ ":" ~ Expr <~ "]") ^^ { case x ~ ":" ~ y => lang.VarExtractOp(lang.VarBitVectorSlice(x, y)) } }
     lazy val ExtractOp : Parser[lang.ExtractOp] = positioned { ConstExtractOp | VarExtractOp }
     lazy val Id: PackratParser[Identifier] = positioned { ident ^^ {case i => Identifier(i)} }
-    lazy val StringValuedId: PackratParser[Identifier] = positioned { (ident ~ "=" ~ stringLit) ^^ { case ident ~ "=" ~ value => Identifier(ident, Some(value)) } } // TODO: refactor Id using .? operator?
+    lazy val StringValuedId: PackratParser[StringValuedIdentifier] = positioned { 
+      ((ident ~ "=" ~ stringLit) ^^ { case ident ~ "=" ~ value => StringValuedIdentifier(ident, Some(value)) }) | 
+      (ident) ^^ { case ident => StringValuedIdentifier(ident, None) }
+    } 
     /* BEGIN Literals. */
     lazy val Bool: PackratParser[BoolLit] =
       positioned { "false" ^^ { _ => BoolLit(false) } | "true" ^^ { _ => BoolLit(true) } }
@@ -556,8 +559,8 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     lazy val IdList : PackratParser[List[lang.Identifier]] =
       Id ~ rep("," ~> Id) ^^ { case id ~ ids => id :: ids }
 
-    lazy val AnnotationList : PackratParser[List[lang.Identifier]] = 
-      (StringValuedId | Id) ~ rep("," ~> StringValuedId | Id) ^^ { case id ~ ids => id :: ids }  
+    lazy val AnnotationList : PackratParser[List[lang.StringValuedIdentifier]] = 
+      StringValuedId ~ rep("," ~> StringValuedId) ^^ { case id ~ ids => id :: ids }  
     
     lazy val BlockVarsDecl : PackratParser[lang.BlockVarsDecl] = positioned {
       KwVar ~> IdList ~ (":" ~> Type) <~ ";" ^^ {
@@ -659,7 +662,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       }
     }
 
-    lazy val ProcedureAnnotationList : PackratParser[List[lang.Identifier]] = {
+    lazy val ProcedureAnnotationList : PackratParser[List[lang.StringValuedIdentifier]] = {
       "[" ~> AnnotationList <~ "]"
     }
     
@@ -688,7 +691,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
             case None => ProcedureAnnotations(Set.empty) // TODO: throw an exception, a preamble must correspond to a particular language
         } 
         
-        lang.PreambleDecl(, body, annotations)
+        lang.PreambleDecl(body, annotations)
       }
     }
 

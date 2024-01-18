@@ -1,3 +1,11 @@
+package uclid
+package test
+
 import org.scalatest.flatspec.AnyFlatSpec
 
-class CBMCSpec extends AnyFlatSpec {}
+object CBMCSpec {}
+class CBMCSpec extends AnyFlatSpec {
+  "test-cbmc.ucl" should "verify successfully." in {
+    VerifierSpec
+  }
+}

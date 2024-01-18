@@ -1,0 +1,32 @@
+module main
+{
+  input a : integer;
+  input b : integer;
+  var x : integer; 
+
+  preamble[lang=C] {
+    int add(int a, int b) { return (a + b) % 10; }
+  }
+
+  procedure[lang=C,verifier=CBMC] sum(a : integer, b: integer) returns (x : integer)
+    modifies x;
+    requires (a > 0);
+    requires (a < 10);
+    requires (b > 0);
+    requires (b < 10);
+    ensures (x < 10);
+  {
+    return add(a, b);
+  }
+
+  invariant boundedX : (x > 0) && (x < 10);
+
+  next {
+    call (x') = add(a, b);
+  }
+
+  control {
+    print_module
+    check
+  }
+}

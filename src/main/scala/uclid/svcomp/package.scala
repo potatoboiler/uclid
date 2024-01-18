@@ -34,6 +34,15 @@ abstract class SupportedVerifiers() {
   def convert_uclid_types(input_type: Type): String
   def check_module(module: lang.Module): Unit
   def invoke(cbmc_filepath: Path): Unit
+  def run(command: Seq[String]): (Int, String, String)
+}
+object SupportedVerifiers {
+  def mapStringToVerifier(s: String) : SupportedVerifiers = {
+    s match {
+      case "CBMC" => CBMC
+      case _      => ???
+    }
+  }
 
   /*
    * The run function accepts a command to run as a Sequence of strings, runs it, and returns the command return status,
@@ -53,13 +62,5 @@ abstract class SupportedVerifiers() {
     if (error.nonEmpty) { error.setLength(error.length - 1) }
 
     (status, output.toString, error.toString)
-  }
-}
-object SupportedVerifiers {
-  def mapStringToVerifier(s: String) {
-    s match {
-      case "CBMC" => CBMC
-      case _      => ???
-    }
   }
 }

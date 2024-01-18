@@ -1329,7 +1329,7 @@ class ASTRewriter (_passName : String, _pass: RewritePass, setFilename : Boolean
     val mods = proc.modifies.map(v => visitModifiableEntity(v, context)).flatten
     val annotations = pass.rewriteProcedureAnnotations(proc.annotations, context) match {
       case Some(annot) => annot
-      case None => ProcedureAnnotations(Set.empty[Identifier])
+      case None => ProcedureAnnotations(Set.empty)
     }
     val procP = (id, sig, bodyP) match {
       case (Some(i), Some(s), Some(body)) =>

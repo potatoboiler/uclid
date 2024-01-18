@@ -515,13 +515,13 @@ object UclidMain {
     var modifyCmdCount = 0
     cmds.foreach(cmd => {
       cmd.name match {
-        case Identifier("assign_macro", None) =>
+        case Identifier("assign_macro") =>
           val newMacroBody = cmd.macroBody match {
             case Some(b) => b
             case _ => throw new Utils.RuntimeError("Should never get here")
           }
           val macroId = cmd.args(0)._1 match {
-            case Identifier(n, None) => Identifier(n)
+            case Identifier(n) => Identifier(n)
             case _ => throw new Utils.RuntimeError("Should never get here")
           }
           resModule = assignMacro(resModule, macroId, newMacroBody)

@@ -20,6 +20,7 @@ case object CBMC extends SupportedVerifiers() {
     }
   }
 
+
   override val type_mapping =
     Map(
       BooleanType -> "bool",
@@ -112,7 +113,7 @@ case object CBMC extends SupportedVerifiers() {
           case _ => ???
         }
 
-      case Identifier(name, None)                     => name
+      case Identifier(name)                     => name
       case ExternalIdentifier(moduleId, id)           => ???
       case IndexedIdentifier(name, indices)           => ???
       case QualifiedIdentifier(f, typs)               => ???
@@ -201,18 +202,19 @@ case object CBMC extends SupportedVerifiers() {
       s"int main() { ${main_entries.mkString("\n")} }".getBytes()
     )
 
-    temp_file_path
     ??? // todo: rewrite for new semantics
   }
 
-  override def check(module: lang.Module) = {
+  override def check_module(module: lang.Module) = {
     ???
   }
 
-  override def invoke(cbmc_filepath: Path, entrypoint: String) = {
+  override def invoke(cbmc_filepath: Path) = {
     val cmd = List("cbmc", cbmc_filepath.toString, "--json-ui", "--verbosity", "10")
     val status, out, err = SupportedVerifiers.run(cmd)
 
     ???
   }
+
+  override def run(command: Seq[String]): (Int, String, String) = SupportedVerifiers.run(command)
 }

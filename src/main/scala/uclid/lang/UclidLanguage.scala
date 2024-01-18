@@ -738,8 +738,8 @@ sealed abstract class Expr extends ASTNode {
  */
 sealed abstract class QIdentifier extends Expr
 sealed abstract class UIdentifier extends QIdentifier
-case class Identifier(name : String, value: Option[String] = None) extends UIdentifier {
-  override def toString = { name.toString + { value match { case Some(inner) => s"=${inner}" case None => "" } } }
+case class Identifier(name : String) extends UIdentifier {
+  override def toString = name.toString
 
   /**
     * Checks whether the identifier matches either an
@@ -761,6 +761,9 @@ case class Identifier(name : String, value: Option[String] = None) extends UIden
         }
       }
     }
+}
+case class StringValuedIdentifier(name: String, value: Option[String] = None) extends UIdentifier {
+  override def toString = { name.toString + { value match { case Some(inner) => s"=${inner}" case None => "" } } }
 }
 case class ExternalIdentifier(moduleId : Identifier, id : Identifier) extends UIdentifier {
   override def toString = moduleId.toString + "::" + id.toString
@@ -787,7 +790,7 @@ case class QualifiedIdentifierApplication (qid : QIdentifier, exprs : List[Expr]
         }
         case _ => None
       } else None 
-    case Identifier(name, None) => ULContext.stripMkTupleFunction(name) match {
+    case Identifier(name) => ULContext.stripMkTupleFunction(name) match {
       case Some(s) => {
         val rawtype = ULContext.postTypeMap.get(s).get.asInstanceOf[ProductType]
         val exprsOrNone = exprs.map(_.codegenUclidLang)
@@ -1021,7 +1024,7 @@ object ExprDecorator {
   /** Factory constructor. */
   def parse(e : Expr) : ExprDecorator = {
     val dec = e match {
-      case Identifier(id, None) =>
+      case Identifier(id) =>
         if (id == "LTL") {
           LTLExprDecorator
         } else {
@@ -1552,7 +1555,7 @@ case class ProcedureModifiesExpr(modifiable : ModifiableEntity) extends Procedur
   override val toString = "modifies " + modifiable.toString
 }
 
-case class ProcedureAnnotations(ids : Set[Identifier]) extends ASTNode {
+case class ProcedureAnnotations(ids : Set[StringValuedIdentifier]) extends ASTNode {
   override val toString = {
     if (ids.size > 0) {
       "[" + Utils.join(ids.map(id => id.toString()).toList, ", ") + "] "
@@ -1564,7 +1567,8 @@ case class ProcedureAnnotations(ids : Set[Identifier]) extends ASTNode {
 
 case class PreambleDecl(body: Statement, annotations : ProcedureAnnotations) extends Decl
 {
-  override def toString = "preamble " + annotations.toString + id + "\n" + Utils.join(body.toLines.map(PrettyPrinter.indent(2) + _), "\n")
+  override def toString = "preamble " + annotations.toString + "\n" + Utils.join(body.toLines.map(PrettyPrinter.indent(2) + _), "\n")
+  override def declNames: List[Identifier] = List(Identifier(this.toString()))
 
   lazy val language : SupportedLanguages = SupportedLanguages.mapStringToLang(annotations.ids.filter{ _.name == "lang" }.head.value.get)
 }
@@ -1587,11 +1591,11 @@ case class ProcedureDecl(
   override def declNames = List(id)
 
   lazy val shouldInline = {
-    if(annotations.ids.contains(Identifier("noinline")))
+    if(annotations.ids.contains(StringValuedIdentifier("noinline")))
     {
       if(ensures.size == 0)
         UclidMain.printStatus("Warning: noinlining procedure "+ id + " even though it has no ensures statement")
-      if(annotations.ids.contains(Identifier("inline")))
+      if(annotations.ids.contains(StringValuedIdentifier("inline")))
         throw new Utils.RuntimeError("Procedure " + id + " has both inline and noinline annotations.")
       false;  
     }
@@ -1602,14 +1606,12 @@ case class ProcedureDecl(
   lazy val language : Option[SupportedLanguages] = annotations.ids
     .filter{ _.name == "lang" }
     .headOption
-    .flatMap{ l => SupportedLanguages.mapStringToLang(l.value.get) }
+    .map{ l => SupportedLanguages.mapStringToLang(l.value.get) }
 
   lazy val verifier : Option[SupportedVerifiers] = annotations.ids
     .filter{ _.name == "verifier" }
     .headOption
-    .map {
-      _.value.flatMap(s => SupportVerifiers.mapStringToVerifier(s))
-    }
+    .map { s => SupportedVerifiers.mapStringToVerifier(s.value.get) }
 }
 case class TypeDecl(id: Identifier, typ: Type) extends Decl {
   override def toString = "type " + id + " = " + typ + "; // " + position.toString
@@ -1990,7 +1992,7 @@ case class Module(id: Identifier, decls: List[Decl], var cmds : List[GenericProo
   lazy val inlineableProcedures : Set[Identifier] = decls.collect{ case p : ProcedureDecl => p.id }.toSet
   // svcomp verifiable procedures.
   lazy val externallyVerifiableProcedures : Map[SupportedLanguages, Set[ProcedureDecl]] = {
-    val x = procedures.foreach{ _.annotations.ids.filter{ id : Identifier => id.name == "lang" } }
+    val x = procedures.foreach{ _.annotations.ids.filter{ id : StringValuedIdentifier => id.name == "lang" } }
     ???
   }
   // helper method for inlineableProcedures.

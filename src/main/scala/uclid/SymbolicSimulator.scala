@@ -1565,7 +1565,7 @@ class SymbolicSimulator (module : Module) {
       }
 
       proc.verifier match {
-        case Some(v : SupportedVerifiers) => v.invoke()
+        case Some(v : SupportedVerifiers) => v.invoke(???)
         case None => ???
       }
 
