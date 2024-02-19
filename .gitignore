@@ -33,3 +33,4 @@ lib/libz3java.so
 
 # VS Code development junk files
 project/metals.sbt
+null/
