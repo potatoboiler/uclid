@@ -62,6 +62,7 @@ import scala.collection.mutable
 import uclid.smt.SMTLIB2Interface
 import uclid.smt.Context
 import uclid.svcomp.SupportedVerifiers
+import uclid.svcomp.CBMC
 
 object UniqueIdGenerator {
   var i : Int = 0;
@@ -1558,19 +1559,6 @@ class SymbolicSimulator (module : Module) {
   }
 
   def verifyProcedure(proc : ProcedureDecl, label : String, module: Module) = {
-    if (proc.language.isDefined) {
-      if(proc.shouldInline)
-      {
-        throw new Utils.RuntimeError("External verification (e.g. using CBMC to verify C-procedures) is not supported for inlined procedures.")
-      }
-
-      proc.verifier match {
-        case Some(v : SupportedVerifiers) => v.invoke(???)
-        case None => ???
-      }
-
-      ???
-    }
     assertionTree.startVerificationScope()
 
     val procScope = context + proc
@@ -1585,6 +1573,23 @@ class SymbolicSimulator (module : Module) {
     frameList.clear()
     frameList += initProcState
     logState(verifyProcedureLog, "initProcState", initProcState)
+
+    if (proc.language.isDefined) {
+      // TODO: assertionTree
+      if(proc.shouldInline)
+      {
+        throw new Utils.RuntimeError("External verification (e.g. using CBMC to verify C-procedures) is not supported for inlined procedures.")
+      }
+
+      val verification_result = SupportedVerifiers.dispatchVerifierFromProcedure(proc, module)
+
+      verification_result match {
+        // success, no trace to parse
+        case None => ()
+        // failure, we have something we need to analyze in larger context
+        case Some(value) => uclid.Utils.assert(???, "C procedure failed to verify, TODO: handling")
+      }
+    }
 
     // add all axioms in procedure scope, independent of state variable references
     (Scope.empty + proc).map.foreach {

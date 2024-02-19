@@ -7,10 +7,11 @@ import java.io.File
 import java.nio.file.StandardOpenOption
 import uclid.lang
 import uclid.lang._
+import java.util.Collection
+import scala.collection.mutable.Queue
 
 case object CBMC extends SupportedVerifiers() {
-  // var c_functions: Map[lang.Module, Set[ProcedureDecl]] = Map()
-  var c_functions: MutableList[ProcedureDecl] = MutableList()
+  type RawTraceType = scala.collection.AbstractSeq[ujson.Value]
 
   override def convert_uclid_types(input_type: Type): String = {
     input_type match {
@@ -19,7 +20,6 @@ case object CBMC extends SupportedVerifiers() {
       case _ => ???
     }
   }
-
 
   override val type_mapping =
     Map(
@@ -35,10 +35,80 @@ case object CBMC extends SupportedVerifiers() {
       TupleType -> ???,
       GroupType -> ???
     )
-  def add_cfunc(c_procedure: ProcedureDecl, module: Module): Unit = {
-    if (!c_procedure.body.isInstanceOf[CBlock]) {
-      return
+
+  override def check_procedure(
+      proc: ProcedureDecl,
+      module: lang.Module
+  ): List[TraceType] = {
+    def parse_trace(t: RawTraceType): TraceType = { ??? }
+
+    val cbmc_filepath = generate_cbmc_file(module, List(proc))
+
+    val (status, output, error) = invoke(cbmc_filepath)
+    val parsed_output = parseCbmcOutput(output)
+
+    val counterexample_list = MutableList[TraceType]()
+    for ((procedure_name, (result, trace)) <- parsed_output) {
+      // TODO: use the counterexample trace to refine
+      if (!result) {
+        counterexample_list += parse_trace(trace)
+      }
     }
+
+    counterexample_list.toList
+  }
+
+  /** Traverses module hierarchy and translates referenced modules into C
+    * structs
+    *
+    * @param root_module
+    * @return
+    *   translated module
+    */
+  def convert_uclid_module_hierarchy(root_module: Module): String = {
+    var referenced_modules = Queue[Module]()
+    var translated_modules = MutableList[String]()
+
+    /** Translates a UCLID module to a C struct definition. Used for verifying
+      * procedures that contain references to module variables.
+      *
+      * @param module
+      * @return
+      */
+    def convert_uclid_module(module: Module): String = {
+      var converted_decls = List[String]()
+
+      // Temporary measure until we get recursion and higher order types working properly
+      def convert_id_type(tuple: (Identifier, Type)): String = {
+        val (id, typ) = tuple
+
+        // TODO: refactor to use first-party toString methods instead of this
+        s"${typ.getClass().getName()} ${id.name};"
+      }
+
+      converted_decls ++= module.inputs.map(convert_id_type)
+      converted_decls ++= module.outputs.map(convert_id_type)
+
+      for (const_decl <- module.constantDecls) {} // TODO
+      for (const_decl <- module.constImportDecls) {} // TODO
+      converted_decls ++= module.vars.map(convert_id_type)
+      converted_decls ++= module.sharedVars.map(convert_id_type)
+      converted_decls ++= module.constants.map(convert_id_type)
+
+      for ((id, value) <- module.constLits) {}
+
+      for (imported_module <- module.moduleImportDecls) {
+        // TODO: add a ctx parameter to invocation?
+        // Note: context is determined at compile time, can we parameterize the instantiation of
+      }
+      for (imported_function <- module.funcImportDecls) {
+        // TODO
+      }
+
+      s"struct ${module.id} { ${converted_decls.mkString(";")} };"
+    }
+
+    translated_modules.mkString("\n\n")
   }
 
   def convert_uclid_expr(e: Expr): String = {
@@ -113,7 +183,7 @@ case object CBMC extends SupportedVerifiers() {
           case _ => ???
         }
 
-      case Identifier(name)                     => name
+      case Identifier(name)                           => name
       case ExternalIdentifier(moduleId, id)           => ???
       case IndexedIdentifier(name, indices)           => ???
       case QualifiedIdentifier(f, typs)               => ???
@@ -128,10 +198,13 @@ case object CBMC extends SupportedVerifiers() {
   }
 
   // TODO: find an appropriate place to call this function
-  def generate_cbmc_file(): Path = {
+  def generate_cbmc_file(
+      module: Module,
+      c_functions: Iterable[ProcedureDecl]
+  ): Path = {
     val temp_file_path: Path =
       Files.createTempFile(
-        System.getProperty("user.dir"),
+        "uclid.cbmc." + module.id,
         ".c",
         null
       ) // TODO: prefix/suffix set to original input file name
@@ -195,6 +268,7 @@ case object CBMC extends SupportedVerifiers() {
     }
 
     temp_file_handle.write("#include <stdlib.h>\n\n".getBytes())
+    temp_file_handle.write(convert_uclid_module_hierarchy(module).getBytes())
     function_entries.foreach((function_def: String) =>
       temp_file_handle.write(function_def.getBytes())
     )
@@ -202,19 +276,45 @@ case object CBMC extends SupportedVerifiers() {
       s"int main() { ${main_entries.mkString("\n")} }".getBytes()
     )
 
-    ??? // todo: rewrite for new semantics
+    temp_file_path
   }
 
-  override def check_module(module: lang.Module) = {
-    ???
+  def invoke(cbmc_filepath: Path): (Int, String, String) = {
+    val cmd =
+      "cbmc" :: cbmc_filepath.toString :: "--json-ui" :: "--verbosity" :: "10" :: Nil
+    return SupportedVerifiers.run(cmd)
   }
 
-  override def invoke(cbmc_filepath: Path) = {
-    val cmd = List("cbmc", cbmc_filepath.toString, "--json-ui", "--verbosity", "10")
-    val status, out, err = SupportedVerifiers.run(cmd)
+  override def run(command: Seq[String]): (Int, String, String) =
+    SupportedVerifiers.run(command)
 
-    ???
+  /*
+   * The parseCbmcOutput function takes the output of running a cbmc command (as a string which is a list of json strings) and returns a hashmap of
+   * test description string to a tuple of test result (as a boolean) and counterexample trace (as a list of json objects, if
+   * the test failed).
+   *
+   * Raises an exception if the output is ill-formed. This can be because:
+   * 1. The output string is not a list of valid json strings.
+   * 2. It can't find a json string with the key "result" in the list.
+   * 3. The value of the "result" key is not a list of json objects, each of which has a "description" key and a "status" key, which can only be "SUCCESS" or "FAILURE". Furthermore, if the "status" key is "FAILURE", then the json object must also have a "trace" key whose value is a list of json objects.
+   */
+  // @`throws`[Exception]("If the output is ill-formed.")
+  def parseCbmcOutput(output: String): Map[String, (Boolean, RawTraceType)] = {
+    // TODO: rewrite using org.json4s components?
+    ujson.read(output).arr.find(_.obj.contains("result")) match {
+      case Some(json) =>
+        val result = json("result")
+        result.arr.map { testResult =>
+          val description = testResult("description").str
+          val status = testResult("status").str
+          val trace = if (status == "FAILURE") { testResult("trace").arr }
+          else List()
+          (description, (status == "SUCCESS", trace))
+        }.toMap
+      case None =>
+        throw new Exception(
+          "Could not find a json string with the key \"result\" in the output."
+        )
+    }
   }
-
-  override def run(command: Seq[String]): (Int, String, String) = SupportedVerifiers.run(command)
 }

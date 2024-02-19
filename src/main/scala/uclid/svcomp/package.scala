@@ -28,19 +28,39 @@ object SupportedLanguages {
 }
 
 abstract class SupportedVerifiers() {
+  type TraceType = Boolean
+
   // TODO: Any should be the most restrictive Type over Uclid.lang.Types
   // Use typeclasses? https://stackoverflow.com/questions/55700613/mapped-types-in-scala
   val type_mapping: immutable.Map[Any, String]
   def convert_uclid_types(input_type: Type): String
-  def check_module(module: lang.Module): Unit
-  def invoke(cbmc_filepath: Path): Unit
+  def check_procedure(proc: ProcedureDecl, module: lang.Module): List[TraceType]
   def run(command: Seq[String]): (Int, String, String)
 }
 object SupportedVerifiers {
-  def mapStringToVerifier(s: String) : SupportedVerifiers = {
+  type ResultType = Option[Unit]
+
+  def mapStringToVerifier(s: String): SupportedVerifiers = {
     s match {
       case "CBMC" => CBMC
       case _      => ???
+    }
+  }
+
+  def dispatchVerifierFromProcedure(
+      proc: ProcedureDecl,
+      module: Module
+  ): SupportedVerifiers.ResultType = {
+    val traces = proc.verifier.map {
+      _ match {
+        case CBMC => CBMC.check_procedure(proc, module)
+        case _    => ???
+      }
+    }
+    if (traces.nonEmpty) {
+      Some(())
+    } else {
+      None
     }
   }
 
