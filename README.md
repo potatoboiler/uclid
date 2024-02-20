@@ -154,6 +154,15 @@ This repository consists of the following sub-directories.
  - tutorial: uclid5 tutorial (with LaTeX source)
  - vim: vim syntax highlighting for uclid5.
 
+# Verifier integration
+
+Integration of external verifiers for procedures written in other languages (work in progress) is available in UCLID. 
+
+## Testing CBMC Integration
+
+Run tests relating to CBMC by running 
+```sbt clean compile "test:testOnly *CBMCSpec```
+
 # Related Tools
 
 * [chiselucl](https://github.com/uclid-org/chiselucl) allows Chisel models to be converted into UCLID5.
