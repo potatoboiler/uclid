@@ -218,7 +218,9 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
       KwNext, KwLambda, KwModifies, KwProperty, KwDefineAxiom,
       KwForall, KwExists, KwFiniteForall, KwFiniteExists, KwGroup, KwDefault, KwSynthesis, KwGrammar, KwRequires,
       KwEnsures, KwInvariant, KwParameter, 
-      KwHyperProperty, KwHyperInvariant, KwHyperAxiom, KwMacro)
+      KwHyperProperty, KwHyperInvariant, KwHyperAxiom, KwMacro,
+      KwPreamble
+      )
 
     lazy val ast_binary: Expr ~ String ~ Expr => Expr = {
       case x ~ OpBiImpl ~ y => OperatorApplication(IffOp(), List(x, y))
@@ -622,7 +624,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     }
 
     lazy val CBlk: PackratParser[lang.CBlock] = positioned{
-      "{" ~> "$" ~> String <~ "$" <~ "}" ^^ {
+      "{" ~> String <~ "}" ^^ {
         case body => lang.CBlock(body.toString())
       }
     }
@@ -685,7 +687,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
     }
     
     lazy val PreambleDecl : PackratParser[lang.PreambleDecl] = positioned { 
-      KwPreamble ~> ProcedureAnnotationList.? ~ BlkStmt ^^ { case annotOpt ~ body => 
+      KwPreamble ~> ProcedureAnnotationList.? ~ CBlk ^^ { case annotOpt ~ body => 
         val annotations = annotOpt match {
             case Some(ids) => ProcedureAnnotations(ids.toSet)
             case None => ProcedureAnnotations(Set.empty) // TODO: throw an exception, a preamble must correspond to a particular language
@@ -723,7 +725,7 @@ object UclidParser extends UclidTokenParsers with PackratParsers {
           lang.ProcedureDecl(id, lang.ProcedureSig(args, List.empty),
                              body, requiresList, ensuresList, modifiesList.toSet, annotations) } |
       // procedure with embedded C block
-      KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~ rep(ProcedureVerifExpr) ~ BlkStmt ^^ 
+      KwProcedure ~> ProcedureAnnotationList.? ~ Id ~ IdTypeList ~ (KwReturns ~> IdTypeList) ~ rep(ProcedureVerifExpr) ~ CBlk ^^ 
         { case annotOpt ~ id ~ args ~ outs ~ verifExprs ~ body => 
           val annotations = annotOpt match {
             case Some(ids) => ProcedureAnnotations(ids.toSet)

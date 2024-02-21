@@ -7,7 +7,7 @@ object CBMCSpec {
   def expectedFails(filename: String, nFail: Int): String = {
     UclidMain.enableStringOutput()
     UclidMain.clearStringOutput()
-    val config = UclidMain.Config().copy(smtSolver = List("delphi", "--smto"))
+    val config = UclidMain.Config()
     val modules = UclidMain.compile(
       ConfigCons.createConfig(filename),
       lang.Identifier("main"),
