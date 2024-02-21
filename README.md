@@ -161,7 +161,7 @@ Integration of external verifiers for procedures written in other languages (wor
 ## Testing CBMC Integration
 
 Run tests relating to CBMC by running 
-```sbt clean compile "test:testOnly *CBMCSpec```
+```sbt clean compile "test:testOnly *CBMCSpec"```
 
 # Related Tools
 
